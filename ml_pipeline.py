@@ -9,6 +9,7 @@ ML Pipeline: YOLO + DINO/CLIP 파이프라인
 
 import torch
 import numpy as np
+import os
 from PIL import Image
 from ultralytics import YOLO
 from torchvision import transforms
@@ -29,13 +30,18 @@ class ImageAnalyzer:
         """
         print(f"[ImageAnalyzer] 초기화 시작 (모델: {model_type.upper()})")
 
+        # 모델 저장 폴더 생성
+        self.models_dir = 'models'
+        os.makedirs(self.models_dir, exist_ok=True)
+
         # GPU/CPU 자동 선택
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"   디바이스: {self.device}")
 
-        # YOLO 모델 로드
+        # YOLO 모델 로드 (로컬 캐시 사용)
+        yolo_path = os.path.join(self.models_dir, 'yolov8n.pt')
         print("   YOLO 모델 로딩...")
-        self.yolo_model = YOLO('yolov8n.pt')
+        self.yolo_model = YOLO(yolo_path if os.path.exists(yolo_path) else 'yolov8n.pt')
         print("   YOLO 로딩 완료")
 
         # 특징 추출 모델 로드
@@ -81,10 +87,24 @@ class ImageAnalyzer:
         print("   CLIP 모델 로딩...")
         from transformers import CLIPModel, CLIPProcessor
 
-        self.feature_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.feature_model.eval()
+        clip_model_path = os.path.join(self.models_dir, 'clip-vit-base-patch32')
 
-        self.feature_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        # 로컬에 모델이 있으면 로컬에서 로드, 없으면 다운로드 후 저장
+        if os.path.exists(clip_model_path):
+            print("   로컬 캐시에서 CLIP 모델 로드 중...")
+            self.feature_model = CLIPModel.from_pretrained(clip_model_path, local_files_only=True)
+            self.feature_processor = CLIPProcessor.from_pretrained(clip_model_path, local_files_only=True)
+        else:
+            print("   CLIP 모델 다운로드 중 (최초 1회만)...")
+            self.feature_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+            self.feature_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+            # 로컬에 저장
+            self.feature_model.save_pretrained(clip_model_path)
+            self.feature_processor.save_pretrained(clip_model_path)
+            print(f"   모델 저장 완료: {clip_model_path}")
+
+        self.feature_model.eval()
         self.transform = None
         print("   CLIP 로딩 완료")
 

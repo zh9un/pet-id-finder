@@ -47,6 +47,7 @@ Thumbs.db
 *.pth
 *.onnx
 runs/
+models/
 
 # Logs
 *.log

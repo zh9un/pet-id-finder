@@ -5,9 +5,10 @@ AI 기반 유실동물 유사 개체 검색 시스템
 ## 프로젝트 개요
 
 Pet-ID Finder는 YOLO와 CLIP을 결합한 ML 파이프라인을 통해 유실동물을 찾는 시스템입니다.
+
 사용자가 유실동물 사진을 업로드하면 AI가 자동으로 분석하여 데이터베이스에서 가장 유사한 동물을 찾아줍니다.
 
-### 핵심 기능
+## 핵심 기능
 
 - 이미지 업로드 및 AI 자동 분석
 - YOLO 객체 탐지로 동물 영역 추출
@@ -15,7 +16,7 @@ Pet-ID Finder는 YOLO와 CLIP을 결합한 ML 파이프라인을 통해 유실�
 - 코사인 유사도 기반 검색
 - 유사도 순위 시각화
 
-### 기술 스택
+## 기술 스택
 
 - **Backend**: Flask 3.0.0
 - **AI Models**: YOLOv8n + CLIP (OpenAI)
@@ -67,10 +68,10 @@ cd pet-id-finder
 # Python 가상환경 생성
 python -m venv venv
 
-# 가상환경 활성화
-# Windows
+# 가상환경 활성화 (Windows)
 venv\Scripts\activate
-# macOS/Linux
+
+# 가상환경 활성화 (macOS/Linux)
 source venv/bin/activate
 
 # 패키지 설치
@@ -184,10 +185,4 @@ python tests/test_clip.py
 4. **실시간 알림**: 유사 동물 발견 시 알림
 5. **모바일 앱**: React Native 개발
 
-## 라이선스
 
-이 프로젝트는 교육 목적으로 제작되었습니다.
-
-## 문의
-
-프로젝트 관련 문의사항은 이슈를 통해 남겨주세요.
