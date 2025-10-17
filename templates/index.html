@@ -25,143 +25,130 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 800px;
+            max-width: 1000px;
             width: 100%;
-            padding: 40px;
+            padding: 60px 40px;
+            text-align: center;
         }
 
         h1 {
             color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5em;
+            font-size: 3em;
+            margin-bottom: 15px;
         }
 
         .subtitle {
-            text-align: center;
             color: #666;
-            margin-bottom: 40px;
-            font-size: 1.1em;
-        }
-
-        .section {
-            margin-bottom: 40px;
-        }
-
-        .section h2 {
-            color: #667eea;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            transition: all 0.3s;
-            background: #f8f9ff;
-        }
-
-        .upload-area:hover {
-            border-color: #764ba2;
-            background: #f0f1ff;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .file-label {
-            display: inline-block;
-            padding: 15px 40px;
-            background: #667eea;
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1em;
-            transition: background 0.3s;
-        }
-
-        .file-label:hover {
-            background: #764ba2;
-        }
-
-        .file-name {
-            margin-top: 15px;
-            color: #666;
-            font-size: 0.95em;
-        }
-
-        button[type="submit"] {
-            width: 100%;
-            padding: 15px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
             font-size: 1.2em;
+            margin-bottom: 50px;
+        }
+
+        .question {
+            color: #667eea;
+            font-size: 1.5em;
             font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        .role-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .role-card {
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            border: 3px solid #eee;
+            border-radius: 20px;
+            padding: 50px 30px;
             cursor: pointer;
-            transition: background 0.3s;
-            margin-top: 20px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
         }
 
-        button[type="submit"]:hover {
-            background: #764ba2;
+        .role-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.3);
+            border-color: #667eea;
         }
 
-        button[type="submit"]:active {
-            transform: scale(0.98);
+        .role-card.guardian:hover {
+            border-color: #10b981;
+            box-shadow: 0 15px 40px rgba(16, 185, 129, 0.3);
         }
 
-        .info-box {
-            background: #f0f8ff;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            margin-top: 20px;
-            border-radius: 5px;
+        .role-card.witness:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 15px 40px rgba(245, 158, 11, 0.3);
         }
 
-        .info-box p {
-            color: #555;
+        .role-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+
+        .role-title {
+            color: #333;
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .role-description {
+            color: #666;
+            font-size: 1.1em;
             line-height: 1.6;
-            margin: 5px 0;
+            margin-bottom: 20px;
+        }
+
+        .role-label {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .role-card.guardian .role-label {
+            background: #10b981;
+            color: white;
+        }
+
+        .role-card.witness .role-label {
+            background: #f59e0b;
+            color: white;
         }
 
         .tech-stack {
             text-align: center;
-            margin-top: 30px;
+            margin-top: 50px;
             padding-top: 30px;
             border-top: 1px solid #eee;
             color: #999;
             font-size: 0.9em;
         }
 
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
+        .info-section {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 40px;
+            text-align: left;
         }
 
-        .loading.active {
-            display: block;
+        .info-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
         }
 
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .info-section p {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -170,44 +157,41 @@
         <h1>Pet-ID Finder</h1>
         <p class="subtitle">AI 기반 유실동물 유사 개체 검색 시스템</p>
 
-        <!-- 등록 섹션 -->
-        <div class="section">
-            <h2>1. 유실동물 등록</h2>
-            <form id="registerForm" enctype="multipart/form-data">
-                <div class="upload-area">
-                    <label for="registerFile" class="file-label">이미지 선택</label>
-                    <input type="file" id="registerFile" name="image" accept="image/*" required>
-                    <div class="file-name" id="registerFileName">선택된 파일 없음</div>
+        <p class="question">어떤 도움이 필요하신가요?</p>
+
+        <div class="role-selection">
+            <!-- 보호자 카드 -->
+            <a href="/search" class="role-card guardian">
+                <div class="role-icon">🔍</div>
+                <div class="role-title">잃어버린<br>반려동물을 찾고 있어요</div>
+                <div class="role-description">
+                    내 반려동물 사진을 업로드하시면<br>
+                    목격 신고 데이터와 비교하여<br>
+                    가장 유사한 동물을 찾아드립니다
                 </div>
-                <button type="submit">등록하기</button>
-                <div class="loading" id="registerLoading">
-                    <div class="spinner"></div>
-                    <p>AI가 이미지를 분석중입니다...</p>
+                <span class="role-label">보호자</span>
+            </a>
+
+            <!-- 목격자 카드 -->
+            <a href="/report" class="role-card witness">
+                <div class="role-icon">📷</div>
+                <div class="role-title">길에서 발견한<br>동물을 신고할게요</div>
+                <div class="role-description">
+                    주인을 잃은 것 같은 동물을 발견하셨나요?<br>
+                    사진을 업로드해주시면<br>
+                    AI가 분석하여 데이터베이스에 저장합니다
                 </div>
-            </form>
-            <div class="info-box">
-                <p>개 또는 고양이 이미지를 업로드하면 AI가 자동으로 분석하여 데이터베이스에 저장합니다.</p>
-            </div>
+                <span class="role-label">목격자</span>
+            </a>
         </div>
 
-        <!-- 검색 섹션 -->
-        <div class="section">
-            <h2>2. 유사 동물 검색</h2>
-            <form id="searchForm" action="/" method="POST" enctype="multipart/form-data">
-                <div class="upload-area">
-                    <label for="searchFile" class="file-label">이미지 선택</label>
-                    <input type="file" id="searchFile" name="search_image" accept="image/*" required>
-                    <div class="file-name" id="searchFileName">선택된 파일 없음</div>
-                </div>
-                <button type="submit">검색하기</button>
-                <div class="loading" id="searchLoading">
-                    <div class="spinner"></div>
-                    <p>유사한 동물을 검색중입니다...</p>
-                </div>
-            </form>
-            <div class="info-box">
-                <p>찾고자 하는 동물 이미지를 업로드하면 AI가 유사도를 계산하여 가장 닮은 동물을 보여줍니다.</p>
-            </div>
+        <!-- 시스템 설명 -->
+        <div class="info-section">
+            <h3>시스템 작동 방식</h3>
+            <p><strong>1. 목격자:</strong> 길에서 발견한 유실동물의 사진을 신고합니다</p>
+            <p><strong>2. AI 분석:</strong> YOLO와 CLIP 모델이 동물의 고유 특징을 추출합니다</p>
+            <p><strong>3. 보호자:</strong> 잃어버린 반려동물 사진을 업로드하여 검색합니다</p>
+            <p><strong>4. 유사도 계산:</strong> 코사인 유사도 기반으로 가장 닮은 동물을 찾아드립니다</p>
         </div>
 
         <!-- 기술 스택 -->
@@ -215,54 +199,5 @@
             <p>YOLO + CLIP | Flask | SQLite | Cosine Similarity</p>
         </div>
     </div>
-
-    <script>
-        // 파일 선택 시 파일명 표시
-        document.getElementById('registerFile').addEventListener('change', function(e) {
-            const fileName = e.target.files[0]?.name || '선택된 파일 없음';
-            document.getElementById('registerFileName').textContent = fileName;
-        });
-
-        document.getElementById('searchFile').addEventListener('change', function(e) {
-            const fileName = e.target.files[0]?.name || '선택된 파일 없음';
-            document.getElementById('searchFileName').textContent = fileName;
-        });
-
-        // 등록 폼 제출
-        document.getElementById('registerForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            const formData = new FormData(this);
-            const loading = document.getElementById('registerLoading');
-
-            loading.classList.add('active');
-
-            try {
-                const response = await fetch('/', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    alert('등록 성공: ' + result.message);
-                    this.reset();
-                    document.getElementById('registerFileName').textContent = '선택된 파일 없음';
-                } else {
-                    alert('등록 실패: ' + (result.error || '알 수 없는 오류'));
-                }
-            } catch (error) {
-                alert('오류 발생: ' + error.message);
-            } finally {
-                loading.classList.remove('active');
-            }
-        });
-
-        // 검색 폼 제출 시 로딩 표시
-        document.getElementById('searchForm').addEventListener('submit', function() {
-            document.getElementById('searchLoading').classList.add('active');
-        });
-    </script>
 </body>
 </html>

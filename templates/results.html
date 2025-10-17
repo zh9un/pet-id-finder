@@ -201,6 +201,8 @@
                         <div class="result-info">
                             <p><strong>ID:</strong> {{ result.id }}</p>
                             <p><strong>유사도:</strong> {{ result.similarity_percent }}</p>
+                            <p><strong>목격 장소:</strong> {{ result.location }}</p>
+                            <p><strong>목격 시간:</strong> {{ result.sighted_at }}</p>
                         </div>
                     </div>
                     {% endfor %}

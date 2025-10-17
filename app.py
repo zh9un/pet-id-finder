@@ -1,9 +1,7 @@
 """
-Flask 웹 서버: Pet-ID Finder
-
-유실동물 유사 개체 검색 시스템
-- 등록: 이미지 업로드 -> YOLO + DINO/CLIP -> DB 저장
-- 검색: 이미지 업로드 -> 코사인 유사도 계산 -> 순위 표시
+Flask 웹 서버: Pet-ID Finder (최종 수정 버전)
+- DB 스키마에 location, sighted_at 추가
+- 검색 시 해당 정보 포함하여 반환
 """
 
 from flask import Flask, render_template, request, jsonify
@@ -14,23 +12,24 @@ import json
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from ml_pipeline import ImageAnalyzer
+from datetime import datetime
 
 app = Flask(__name__)
 
 # 설정
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-# ML Pipeline 초기화 (CLIP 사용, DINO로 변경 가능)
-MODEL_TYPE = 'clip'  # 'dino' 또는 'clip'
+# ML 파이프라인 초기화
+MODEL_TYPE = 'clip'
 print(f"\n[Flask] ML Pipeline 초기화 중 (모델: {MODEL_TYPE.upper()})...")
 analyzer = ImageAnalyzer(model_type=MODEL_TYPE)
 print("[Flask] ML Pipeline 초기화 완료\n")
 
 
 def init_db():
-    """데이터베이스 초기화"""
+    """데이터베이스 초기화 (location, sighted_at 컬럼 추가)"""
     conn = sqlite3.connect('pets.db')
     c = conn.cursor()
 
@@ -39,7 +38,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             image_path TEXT NOT NULL,
             embedding TEXT NOT NULL,
-            animal_type TEXT,
+            location TEXT,
+            sighted_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -54,38 +54,36 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    """메인 페이지"""
-    if request.method == 'POST':
-        # 등록 요청
-        if 'image' in request.files:
-            return register_pet()
-
-        # 검색 요청
-        elif 'search_image' in request.files:
-            return search_pet()
-
-        else:
-            return jsonify({'error': '파일이 첨부되지 않았습니다.'}), 400
-
-    # GET 요청
+    """메인 페이지 - 역할 선택"""
     return render_template('index.html')
 
 
+@app.route('/search')
+def search_page():
+    """보호자 전용 페이지 (검색)"""
+    return render_template('search_page.html')
+
+
+@app.route('/report')
+def report_page():
+    """목격자 전용 페이지 (신고)"""
+    return render_template('report_page.html')
+
+
+@app.route('/register_pet', methods=['POST'])
 def register_pet():
-    """유실동물 등록 (DB 저장)"""
+    """유실동물 신고 처리 (목격자) - AJAX 요청"""
+    if 'image' not in request.files:
+        return jsonify({'error': '파일이 첨부되지 않았습니다.'}), 400
+
     file = request.files['image']
 
-    # 파일 검증
-    if file.filename == '':
-        return jsonify({'error': '파일이 선택되지 않았습니다.'}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({'error': '허용되지 않는 파일 형식입니다.'}), 400
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': '파일이 선택되지 않았거나 허용되지 않는 형식입니다.'}), 400
 
     try:
-        # 파일 저장
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
@@ -99,61 +97,48 @@ def register_pet():
 
         file.save(filepath)
 
-        # ML Pipeline: 특징 추출
         features = analyzer.process_and_extract_features(filepath)
 
         if features is None:
-            # 동물 미탐지
             os.remove(filepath)
-            return jsonify({
-                'error': '이미지에서 동물(개/고양이)을 탐지하지 못했습니다.',
-                'detail': 'YOLO 모델이 동물을 인식하지 못했습니다. 다른 이미지를 사용해주세요.'
-            }), 400
+            return jsonify({'error': '이미지에서 동물(개/고양이)을 탐지하지 못했습니다.'}), 400
 
-        # numpy -> JSON 변환
         embedding_json = json.dumps(features.tolist())
 
-        # DB 저장
+        # 수동 등록 시 기본 정보
+        location = "수동 등록"
+        sighted_at = datetime.now()
+
         conn = sqlite3.connect('pets.db')
         c = conn.cursor()
-
-        c.execute('''
-            INSERT INTO pets (image_path, embedding, animal_type)
-            VALUES (?, ?, ?)
-        ''', (filepath, embedding_json, 'unknown'))
-
+        c.execute(
+            'INSERT INTO pets (image_path, embedding, location, sighted_at) VALUES (?, ?, ?, ?)',
+            (filepath, embedding_json, location, sighted_at)
+        )
         conn.commit()
         pet_id = c.lastrowid
         conn.close()
 
         print(f"[Register] 등록 성공 - ID: {pet_id}, 파일: {filename}")
-
-        return jsonify({
-            'success': True,
-            'message': '동물 정보가 성공적으로 등록되었습니다!',
-            'pet_id': pet_id,
-            'image_path': filepath,
-            'feature_dim': features.shape[1]
-        }), 200
+        return jsonify({'message': f'동물 정보가 성공적으로 등록되었습니다 (ID: {pet_id})'}), 200
 
     except Exception as e:
         print(f"[Register ERROR] {str(e)}")
         return jsonify({'error': f'등록 중 오류 발생: {str(e)}'}), 500
 
 
+@app.route('/search_pet', methods=['POST'])
 def search_pet():
-    """유실동물 검색 (코사인 유사도)"""
+    """유실동물 검색 처리 (보호자) - Form 제출"""
+    if 'search_image' not in request.files:
+        return "파일이 없습니다.", 400
+
     file = request.files['search_image']
 
-    # 파일 검증
-    if file.filename == '':
-        return jsonify({'error': '파일이 선택되지 않았습니다.'}), 400
-
-    if not allowed_file(file.filename):
-        return jsonify({'error': '허용되지 않는 파일 형식입니다.'}), 400
+    if file.filename == '' or not allowed_file(file.filename):
+        return "파일이 없거나 잘못된 형식입니다.", 400
 
     try:
-        # 파일 저장
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"search_{filename}")
 
@@ -166,70 +151,54 @@ def search_pet():
 
         file.save(filepath)
 
-        # ML Pipeline: 특징 추출
         query_features = analyzer.process_and_extract_features(filepath)
 
         if query_features is None:
             os.remove(filepath)
-            return jsonify({
-                'error': '검색 이미지에서 동물(개/고양이)을 탐지하지 못했습니다.',
-                'detail': 'YOLO 모델이 동물을 인식하지 못했습니다.'
-            }), 400
+            return "검색 이미지에서 동물을 찾을 수 없습니다.", 400
 
-        # DB에서 모든 동물 데이터 로드
         conn = sqlite3.connect('pets.db')
+        conn.row_factory = sqlite3.Row  # Row 팩토리 사용
         c = conn.cursor()
 
-        c.execute('SELECT id, image_path, embedding FROM pets')
+        c.execute('SELECT id, image_path, embedding, location, sighted_at FROM pets')
         all_pets = c.fetchall()
         conn.close()
 
-        if len(all_pets) == 0:
-            return jsonify({
-                'error': '등록된 동물이 없습니다.',
-                'detail': '먼저 동물을 등록해주세요.'
-            }), 404
+        if not all_pets:
+            return render_template('results.html', query_image=filepath, results=[], total_count=0)
 
-        # 코사인 유사도 계산
         results = []
-
-        for pet_id, img_path, embedding_json in all_pets:
-            db_embedding = np.array(json.loads(embedding_json))
-
-            # 유사도 계산
+        for pet in all_pets:
+            db_embedding = np.array(json.loads(pet['embedding']))
             similarity = cosine_similarity(query_features, db_embedding)[0][0]
 
             results.append({
-                'id': pet_id,
-                'image_path': img_path,
+                'id': pet['id'],
+                'image_path': pet['image_path'],
+                'location': pet['location'] if pet['location'] else '장소 정보 없음',
+                'sighted_at': pet['sighted_at'] if pet['sighted_at'] else '시간 정보 없음',
                 'similarity': float(similarity),
                 'similarity_percent': f"{similarity * 100:.2f}%"
             })
 
-        # 유사도 내림차순 정렬
         results.sort(key=lambda x: x['similarity'], reverse=True)
-
         print(f"[Search] 검색 완료 - 결과: {len(results)}개")
 
-        return render_template('search.html',
-                               query_image=filepath,
-                               results=results,
-                               total_count=len(results))
+        return render_template('results.html', query_image=filepath, results=results, total_count=len(results))
 
     except Exception as e:
         print(f"[Search ERROR] {str(e)}")
-        return jsonify({'error': f'검색 중 오류 발생: {str(e)}'}), 500
+        return f"검색 중 오류 발생: {str(e)}", 500
 
 
 @app.route('/stats')
 def stats():
-    """통계 API (선택)"""
+    """통계 API"""
     conn = sqlite3.connect('pets.db')
     c = conn.cursor()
-
     c.execute('SELECT COUNT(*) FROM pets')
     total_count = c.fetchone()[0]
-
     conn.close()
 
     return jsonify({
@@ -239,10 +208,7 @@ def stats():
 
 
 if __name__ == '__main__':
-    # 업로드 폴더 생성
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-    # 데이터베이스 초기화
     init_db()
 
     print("\n" + "=" * 60)
