@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>검색 결과 | Pet-ID Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .query-section {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .query-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .query-image {
+            max-width: 400px;
+            max-height: 400px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-section {
+            margin-top: 40px;
+        }
+
+        .results-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .result-count {
+            color: #999;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .result-card {
+            background: white;
+            border: 2px solid #eee;
+            border-radius: 15px;
+            padding: 20px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .similarity-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #667eea;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .similarity-badge.high {
+            background: #10b981;
+        }
+
+        .similarity-badge.medium {
+            background: #f59e0b;
+        }
+
+        .similarity-badge.low {
+            background: #ef4444;
+        }
+
+        .result-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .result-info {
+            text-align: center;
+        }
+
+        .result-info p {
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .back-button {
+            display: inline-block;
+            margin-top: 40px;
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .back-button:hover {
+            background: #764ba2;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .no-results h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>검색 결과</h1>
+        <p class="subtitle">AI가 분석한 유사 동물 목록</p>
+
+        <!-- 검색 이미지 -->
+        <div class="query-section">
+            <h2>검색한 이미지</h2>
+            <img src="/{{ query_image }}" alt="검색 이미지" class="query-image">
+        </div>
+
+        <!-- 검색 결과 -->
+        <div class="results-section">
+            <h2>유사한 동물</h2>
+            <p class="result-count">총 {{ total_count }}개의 결과가 발견되었습니다</p>
+
+            {% if results %}
+                <div class="results-grid">
+                    {% for result in results %}
+                    <div class="result-card">
+                        {% set similarity = result.similarity * 100 %}
+                        {% if similarity >= 80 %}
+                            <span class="similarity-badge high">{{ result.similarity_percent }}</span>
+                        {% elif similarity >= 50 %}
+                            <span class="similarity-badge medium">{{ result.similarity_percent }}</span>
+                        {% else %}
+                            <span class="similarity-badge low">{{ result.similarity_percent }}</span>
+                        {% endif %}
+
+                        <img src="/{{ result.image_path }}" alt="유사 동물" class="result-image">
+
+                        <div class="result-info">
+                            <p><strong>ID:</strong> {{ result.id }}</p>
+                            <p><strong>유사도:</strong> {{ result.similarity_percent }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-results">
+                    <h3>검색 결과가 없습니다</h3>
+                    <p>등록된 동물이 없거나 유사한 동물을 찾지 못했습니다.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div style="text-align: center;">
+            <a href="/" class="back-button">새로운 검색</a>
+        </div>
+    </div>
+</body>
+</html>

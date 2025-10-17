@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pet-ID Finder | AI 기반 유실동물 검색</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background 0.3s;
+        }
+
+        .file-label:hover {
+            background: #764ba2;
+        }
+
+        .file-name {
+            margin-top: 15px;
+            color: #666;
+            font-size: 0.95em;
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 20px;
+        }
+
+        button[type="submit"]:hover {
+            background: #764ba2;
+        }
+
+        button[type="submit"]:active {
+            transform: scale(0.98);
+        }
+
+        .info-box {
+            background: #f0f8ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+
+        .tech-stack {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pet-ID Finder</h1>
+        <p class="subtitle">AI 기반 유실동물 유사 개체 검색 시스템</p>
+
+        <!-- 등록 섹션 -->
+        <div class="section">
+            <h2>1. 유실동물 등록</h2>
+            <form id="registerForm" enctype="multipart/form-data">
+                <div class="upload-area">
+                    <label for="registerFile" class="file-label">이미지 선택</label>
+                    <input type="file" id="registerFile" name="image" accept="image/*" required>
+                    <div class="file-name" id="registerFileName">선택된 파일 없음</div>
+                </div>
+                <button type="submit">등록하기</button>
+                <div class="loading" id="registerLoading">
+                    <div class="spinner"></div>
+                    <p>AI가 이미지를 분석중입니다...</p>
+                </div>
+            </form>
+            <div class="info-box">
+                <p>개 또는 고양이 이미지를 업로드하면 AI가 자동으로 분석하여 데이터베이스에 저장합니다.</p>
+            </div>
+        </div>
+
+        <!-- 검색 섹션 -->
+        <div class="section">
+            <h2>2. 유사 동물 검색</h2>
+            <form id="searchForm" action="/" method="POST" enctype="multipart/form-data">
+                <div class="upload-area">
+                    <label for="searchFile" class="file-label">이미지 선택</label>
+                    <input type="file" id="searchFile" name="search_image" accept="image/*" required>
+                    <div class="file-name" id="searchFileName">선택된 파일 없음</div>
+                </div>
+                <button type="submit">검색하기</button>
+                <div class="loading" id="searchLoading">
+                    <div class="spinner"></div>
+                    <p>유사한 동물을 검색중입니다...</p>
+                </div>
+            </form>
+            <div class="info-box">
+                <p>찾고자 하는 동물 이미지를 업로드하면 AI가 유사도를 계산하여 가장 닮은 동물을 보여줍니다.</p>
+            </div>
+        </div>
+
+        <!-- 기술 스택 -->
+        <div class="tech-stack">
+            <p>YOLO + CLIP | Flask | SQLite | Cosine Similarity</p>
+        </div>
+    </div>
+
+    <script>
+        // 파일 선택 시 파일명 표시
+        document.getElementById('registerFile').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '선택된 파일 없음';
+            document.getElementById('registerFileName').textContent = fileName;
+        });
+
+        document.getElementById('searchFile').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '선택된 파일 없음';
+            document.getElementById('searchFileName').textContent = fileName;
+        });
+
+        // 등록 폼 제출
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const loading = document.getElementById('registerLoading');
+
+            loading.classList.add('active');
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('등록 성공: ' + result.message);
+                    this.reset();
+                    document.getElementById('registerFileName').textContent = '선택된 파일 없음';
+                } else {
+                    alert('등록 실패: ' + (result.error || '알 수 없는 오류'));
+                }
+            } catch (error) {
+                alert('오류 발생: ' + error.message);
+            } finally {
+                loading.classList.remove('active');
+            }
+        });
+
+        // 검색 폼 제출 시 로딩 표시
+        document.getElementById('searchForm').addEventListener('submit', function() {
+            document.getElementById('searchLoading').classList.add('active');
+        });
+    </script>
+</body>
+</html>

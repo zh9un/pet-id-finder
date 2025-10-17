@@ -1,0 +1,23 @@
+# Flask Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Deep Learning - YOLO
+ultralytics==8.0.200
+
+# Deep Learning - PyTorch
+torch==2.1.0
+torchvision==0.16.0
+
+# Deep Learning - Transformers (CLIP backup)
+transformers==4.35.0
+
+# Image Processing
+Pillow==10.1.0
+
+# Machine Learning Utils
+scikit-learn==1.3.2
+numpy==1.24.3
+
+# Data Handling
+scipy==1.11.4
