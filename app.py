@@ -29,7 +29,7 @@ print("[Flask] ML Pipeline 초기화 완료\n")
 
 
 def init_db():
-    """데이터베이스 초기화 (location, sighted_at 컬럼 추가)"""
+    """데이터베이스 초기화 (location, sighted_at, animal_type 컬럼 추가)"""
     conn = sqlite3.connect('pets.db')
     c = conn.cursor()
 
@@ -38,6 +38,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             image_path TEXT NOT NULL,
             embedding TEXT NOT NULL,
+            animal_type TEXT,
             location TEXT,
             sighted_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -97,7 +98,7 @@ def register_pet():
 
         file.save(filepath)
 
-        features = analyzer.process_and_extract_features(filepath)
+        features, animal_type = analyzer.process_and_extract_features(filepath)
 
         if features is None:
             os.remove(filepath)
@@ -112,14 +113,14 @@ def register_pet():
         conn = sqlite3.connect('pets.db')
         c = conn.cursor()
         c.execute(
-            'INSERT INTO pets (image_path, embedding, location, sighted_at) VALUES (?, ?, ?, ?)',
-            (filepath, embedding_json, location, sighted_at)
+            'INSERT INTO pets (image_path, embedding, animal_type, location, sighted_at) VALUES (?, ?, ?, ?, ?)',
+            (filepath, embedding_json, animal_type, location, sighted_at)
         )
         conn.commit()
         pet_id = c.lastrowid
         conn.close()
 
-        print(f"[Register] 등록 성공 - ID: {pet_id}, 파일: {filename}")
+        print(f"[Register] 등록 성공 - ID: {pet_id}, 종류: {animal_type}, 파일: {filename}")
         return jsonify({'message': f'동물 정보가 성공적으로 등록되었습니다 (ID: {pet_id})'}), 200
 
     except Exception as e:
@@ -151,7 +152,7 @@ def search_pet():
 
         file.save(filepath)
 
-        query_features = analyzer.process_and_extract_features(filepath)
+        query_features, query_animal_type = analyzer.process_and_extract_features(filepath)
 
         if query_features is None:
             os.remove(filepath)
@@ -161,12 +162,16 @@ def search_pet():
         conn.row_factory = sqlite3.Row  # Row 팩토리 사용
         c = conn.cursor()
 
-        c.execute('SELECT id, image_path, embedding, location, sighted_at FROM pets')
+        # 같은 동물 종류만 필터링하여 가져오기
+        c.execute('SELECT id, image_path, embedding, animal_type, location, sighted_at FROM pets WHERE animal_type = ?',
+                  (query_animal_type,))
         all_pets = c.fetchall()
         conn.close()
 
         if not all_pets:
-            return render_template('results.html', query_image=filepath, results=[], total_count=0)
+            animal_name = "강아지" if query_animal_type == "dog" else "고양이"
+            return render_template('results.html', query_image=filepath, results=[], total_count=0,
+                                 message=f"DB에 등록된 {animal_name} 목격 정보가 없습니다.")
 
         results = []
         for pet in all_pets:
@@ -176,6 +181,7 @@ def search_pet():
             results.append({
                 'id': pet['id'],
                 'image_path': pet['image_path'],
+                'animal_type': pet['animal_type'],
                 'location': pet['location'] if pet['location'] else '장소 정보 없음',
                 'sighted_at': pet['sighted_at'] if pet['sighted_at'] else '시간 정보 없음',
                 'similarity': float(similarity),
@@ -183,7 +189,8 @@ def search_pet():
             })
 
         results.sort(key=lambda x: x['similarity'], reverse=True)
-        print(f"[Search] 검색 완료 - 결과: {len(results)}개")
+        animal_name = "강아지" if query_animal_type == "dog" else "고양이"
+        print(f"[Search] 검색 완료 - 종류: {animal_name}, 결과: {len(results)}개")
 
         return render_template('results.html', query_image=filepath, results=results, total_count=len(results))
 

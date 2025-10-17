@@ -116,7 +116,9 @@ class ImageAnalyzer:
             image_path (str): 이미지 파일 경로
 
         Returns:
-            numpy.ndarray: 특징 벡터 (shape: (1, dim)) 또는 None (동물 미탐지)
+            tuple: (특징 벡터, 동물 종류) 또는 (None, None) (동물 미탐지)
+                - features (numpy.ndarray): 특징 벡터 (shape: (1, dim))
+                - animal_type (str): 'dog' 또는 'cat'
         """
         try:
             # Step 1: 이미지 로드
@@ -128,6 +130,7 @@ class ImageAnalyzer:
 
             # Step 3: 동물 필터링
             animal_detected = False
+            animal_type = None
             cropped_img = None
 
             for result in results:
@@ -141,6 +144,7 @@ class ImageAnalyzer:
                     # COCO 데이터셋: dog(16), cat(15)
                     if class_name in ['dog', 'cat'] and confidence > 0.3:
                         animal_detected = True
+                        animal_type = class_name  # 'dog' 또는 'cat' 저장
 
                         # Bounding box 좌표 추출
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
@@ -155,7 +159,7 @@ class ImageAnalyzer:
 
             # 동물 미탐지
             if not animal_detected or cropped_img is None:
-                return None
+                return None, None
 
             # Step 4: 특징 벡터 추출
             if self.model_type == 'dino':
@@ -163,11 +167,11 @@ class ImageAnalyzer:
             else:
                 features = self._extract_clip_features(cropped_img)
 
-            return features
+            return features, animal_type
 
         except Exception as e:
             print(f"[ERROR] 이미지 처리 실패: {str(e)}")
-            return None
+            return None, None
 
     def _extract_dino_features(self, img):
         """DINO 특징 추출"""

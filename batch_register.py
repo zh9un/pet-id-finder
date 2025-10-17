@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from ml_pipeline import ImageAnalyzer
 
 # 설정
-IMAGE_FOLDER = 'demo_images'
+IMAGE_FOLDER = 'static/demo_images'
 DB_PATH = 'pets.db'
 MODEL_TYPE = 'clip'  # app.py와 동일한 모델 사용
 
@@ -128,8 +128,8 @@ def batch_register_pets():
 
             print(f"\n  처리 중: {relative_path}")
 
-            # ML Pipeline으로 특징 벡터 추출
-            features = analyzer.process_and_extract_features(filepath)
+            # ML Pipeline으로 특징 벡터 및 동물 종류 추출
+            features, animal_type = analyzer.process_and_extract_features(filepath)
 
             if features is not None:
                 # numpy 배열을 JSON 문자열로 변환
@@ -143,9 +143,11 @@ def batch_register_pets():
                 c.execute('''
                     INSERT INTO pets (image_path, embedding, animal_type, location, sighted_at)
                     VALUES (?, ?, ?, ?, ?)
-                ''', (filepath, embedding_json, 'unknown', location, sighted_time))
+                ''', (filepath, embedding_json, animal_type, location, sighted_time))
 
+                animal_name = "강아지" if animal_type == "dog" else "고양이"
                 print(f"    -> 등록 성공!")
+                print(f"       종류: {animal_name}")
                 print(f"       장소: {location}")
                 print(f"       시간: {sighted_time.strftime('%Y-%m-%d %H:%M')}")
                 success_count += 1
