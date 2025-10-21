@@ -14,6 +14,8 @@ Pet-ID Finder는 YOLO와 CLIP을 결합한 ML 파이프라인을 통해 유실�
 - **이미지 업로드**: 목격자/보호자 역할별 UI 제공
 - **YOLO 객체 탐지**: 동물 영역 자동 추출 (개/고양이 구분)
 - **CLIP 특징 벡터**: 512차원 임베딩 생성
+- **품종 분류**: CLIP Zero-shot Classification으로 자동 품종 인식
+- **품종별 필터링**: 같은 품종만 검색하는 옵션 제공
 - **코사인 유사도 검색**: DB 전체 비교 후 순위 산출
 - **목격 정보 관리**: 발견 장소, 시간 정보 저장 및 표시
 
@@ -55,7 +57,8 @@ Pet-ID Finder는 YOLO와 CLIP을 결합한 ML 파이프라인을 통해 유실�
                     │  Step 1: YOLO 객체 탐지         │
                     │  Step 2: 이미지 Crop            │
                     │  Step 3: CLIP 특징 추출         │
-                    │  Output: 512차원 벡터           │
+                    │  Step 4: 품종 분류 (Zero-shot)  │
+                    │  Output: 512차원 벡터 + 품종    │
                     └──────┬──────────────────────────┘
                            │
                            v
@@ -104,7 +107,22 @@ python api_register.py
 - 발견 날짜 정보
 - YOLO 검증 후 DB 저장
 
-### 3. 실행
+### 3. 기존 데이터 품종 재분석 (선택)
+
+API로 수집한 기존 데이터에 품종 정보를 추가합니다:
+
+```bash
+python update_breeds.py
+```
+
+**소요 시간**: 데이터 개수에 따라 3-5분
+
+**수행 작업**:
+- 품종 정보가 없는 모든 데이터 조회
+- CLIP Zero-shot으로 품종 분류
+- 데이터베이스 업데이트
+
+### 4. 실행
 
 ```bash
 # Flask 서버 시작
@@ -126,9 +144,10 @@ python app.py
 
 1. "보호자입니다" 버튼 클릭
 2. 찾고 싶은 반려동물 사진 업로드
-3. "검색하기" 버튼 클릭
-4. 유사도 순위로 정렬된 결과 확인
-5. 발견 장소 및 시간 정보 확인
+3. (선택) "같은 품종만 검색" 체크박스 선택
+4. "검색하기" 버튼 클릭
+5. 유사도 순위로 정렬된 결과 확인
+6. 발견 장소, 시간, 품종 정보 확인
 
 ### 목격자 모드 (신고)
 
@@ -142,14 +161,15 @@ python app.py
 ```
 pet-id-finder/
 ├── app.py                  # Flask 서버
-├── ml_pipeline.py          # ML 파이프라인 (YOLO + CLIP)
-├── api_register.py         # API 데이터 수집 스크립트 ⭐ NEW
+├── ml_pipeline.py          # ML 파이프라인 (YOLO + CLIP + 품종 분류)
+├── api_register.py         # API 데이터 수집 스크립트
+├── update_breeds.py        # 기존 데이터 품종 재분석 스크립트
 ├── requirements.txt        # 패키지 의존성
 ├── README.md              # 프로젝트 설명서
 ├── .gitignore             # Git 제외 파일
 ├── static/
 │   ├── uploads/           # 사용자 업로드 이미지
-│   └── api_images/        # API에서 수집한 이미지 ⭐ NEW
+│   └── api_images/        # API에서 수집한 이미지
 ├── templates/
 │   ├── index.html         # 메인 페이지 (역할 선택)
 │   ├── search_page.html   # 보호자 페이지 (검색)
@@ -168,13 +188,30 @@ pet-id-finder/
 1. **YOLO 객체 탐지**: 이미지에서 'dog' 또는 'cat' 탐지
 2. **이미지 Crop**: 탐지된 영역만 추출
 3. **CLIP 특징 추출**: 512차원 벡터 생성
-4. **코사인 유사도**: DB 벡터와 비교하여 순위 산출
+4. **품종 분류**: CLIP Zero-shot Classification으로 품종 자동 인식
+5. **코사인 유사도**: DB 벡터와 비교하여 순위 산출
 
 ```python
 # 유사도 계산
 from sklearn.metrics.pairwise import cosine_similarity
 
 similarity = cosine_similarity(query_embedding, db_embedding)[0][0]
+```
+
+### 품종 분류 (Zero-shot Classification)
+
+CLIP 모델을 활용하여 추가 학습 없이 품종을 분류합니다:
+
+```python
+# 품종 후보 목록
+dog_breeds = ["Poodle", "Golden Retriever", "Labrador Retriever", ...]
+
+# 텍스트 프롬프트 생성
+text_inputs = [f"a photo of a {breed}" for breed in dog_breeds]
+
+# 이미지-텍스트 유사도 계산
+outputs = clip_model(text=text_inputs, images=cropped_img)
+predicted_breed = dog_breeds[outputs.logits_per_image.argmax()]
 ```
 
 ## 모델 변경
@@ -211,16 +248,18 @@ python tests/test_clip.py
 ### 2. ML 파이프라인
 
 - **YOLO**: 객체 탐지 및 개/고양이 구분
-- **CLIP**: 512차원 특징 벡터 추출
+- **CLIP**: 512차원 특징 벡터 추출 + Zero-shot 품종 분류
 - 교수님 강의의 파이프라인 개념 적용
 - GPU 자동 감지 및 최적화
+- 추가 학습 없이 품종 인식 (개 20종, 고양이 15종)
 
 ### 3. 데이터베이스 설계
 
 - SQLite 사용
 - 특징 벡터를 JSON 형식으로 저장
 - 목격 정보 (location, sighted_at) 포함
-- 동물 종류별 필터링 지원
+- 품종 정보 (breed) 저장
+- 동물 종류별, 품종별 필터링 지원
 
 ### 4. 견고한 에러 처리
 
