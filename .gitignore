@@ -51,3 +51,6 @@ models/
 
 # Logs
 *.log
+
+# Demo images (added)
+demo_images/
