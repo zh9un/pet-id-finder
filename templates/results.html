@@ -181,7 +181,12 @@
         <!-- 검색 결과 -->
         <div class="results-section">
             <h2>유사한 동물</h2>
-            <p class="result-count">총 {{ total_count }}개의 결과가 발견되었습니다</p>
+            <p class="result-count">
+                총 {{ total_count }}개의 결과가 발견되었습니다
+                {% if breed_filter and query_breed %}
+                <span style="color: #667eea; font-weight: bold;"> (품종: {{ query_breed }}만 검색)</span>
+                {% endif %}
+            </p>
 
             {% if results %}
                 <div class="results-grid">
@@ -200,6 +205,7 @@
 
                         <div class="result-info">
                             <p><strong>ID:</strong> {{ result.id }}</p>
+                            <p><strong>품종:</strong> <span style="color: #667eea;">{{ result.breed }}</span></p>
                             <p><strong>유사도:</strong> {{ result.similarity_percent }}</p>
                             <p><strong>목격 장소:</strong> {{ result.location }}</p>
                             <p><strong>목격 시간:</strong> {{ result.sighted_at }}</p>

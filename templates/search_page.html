@@ -202,6 +202,17 @@
                 <div class="file-name" id="searchFileName">선택된 파일 없음</div>
             </div>
 
+            <div style="background: #f0fdf4; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; cursor: pointer; font-size: 1em; color: #333;">
+                    <input type="checkbox" name="breed_filter" id="breedFilter" style="display: inline-block; width: auto; margin-right: 10px; cursor: pointer;">
+                    <span>같은 품종만 검색 (AI가 자동으로 품종 감지)</span>
+                </label>
+                <p style="margin-top: 10px; font-size: 0.85em; color: #666; margin-left: 30px;">
+                    체크 시: 업로드한 이미지와 같은 품종만 검색합니다<br>
+                    (예: 푸들 사진 → 푸들만 검색)
+                </p>
+            </div>
+
             <button type="submit">검색하기</button>
 
             <div class="loading" id="searchLoading">

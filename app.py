@@ -29,7 +29,7 @@ print("[Flask] ML Pipeline 초기화 완료\n")
 
 
 def init_db():
-    """데이터베이스 초기화 (location, sighted_at, animal_type 컬럼 추가)"""
+    """데이터베이스 초기화 (location, sighted_at, animal_type, breed 컬럼 추가)"""
     conn = sqlite3.connect('pets.db')
     c = conn.cursor()
 
@@ -39,11 +39,20 @@ def init_db():
             image_path TEXT NOT NULL,
             embedding TEXT NOT NULL,
             animal_type TEXT,
+            breed TEXT,
             location TEXT,
             sighted_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # 기존 테이블에 breed 컬럼이 없으면 추가 (안전한 마이그레이션)
+    try:
+        c.execute("SELECT breed FROM pets LIMIT 1")
+    except sqlite3.OperationalError:
+        print("[Database] breed 컬럼 추가 중...")
+        c.execute("ALTER TABLE pets ADD COLUMN breed TEXT")
+        print("[Database] breed 컬럼 추가 완료")
 
     conn.commit()
     conn.close()
@@ -98,7 +107,7 @@ def register_pet():
 
         file.save(filepath)
 
-        features, animal_type = analyzer.process_and_extract_features(filepath)
+        features, animal_type, breed = analyzer.process_and_extract_features(filepath)
 
         if features is None:
             os.remove(filepath)
@@ -113,15 +122,15 @@ def register_pet():
         conn = sqlite3.connect('pets.db')
         c = conn.cursor()
         c.execute(
-            'INSERT INTO pets (image_path, embedding, animal_type, location, sighted_at) VALUES (?, ?, ?, ?, ?)',
-            (filepath, embedding_json, animal_type, location, sighted_at)
+            'INSERT INTO pets (image_path, embedding, animal_type, breed, location, sighted_at) VALUES (?, ?, ?, ?, ?, ?)',
+            (filepath, embedding_json, animal_type, breed, location, sighted_at)
         )
         conn.commit()
         pet_id = c.lastrowid
         conn.close()
 
-        print(f"[Register] 등록 성공 - ID: {pet_id}, 종류: {animal_type}, 파일: {filename}")
-        return jsonify({'message': f'동물 정보가 성공적으로 등록되었습니다 (ID: {pet_id})'}), 200
+        print(f"[Register] 등록 성공 - ID: {pet_id}, 종류: {animal_type}, 품종: {breed}, 파일: {filename}")
+        return jsonify({'message': f'동물 정보가 성공적으로 등록되었습니다 (ID: {pet_id}, 품종: {breed})'}), 200
 
     except Exception as e:
         print(f"[Register ERROR] {str(e)}")
@@ -152,26 +161,40 @@ def search_pet():
 
         file.save(filepath)
 
-        query_features, query_animal_type = analyzer.process_and_extract_features(filepath)
+        query_features, query_animal_type, query_breed = analyzer.process_and_extract_features(filepath)
 
         if query_features is None:
             os.remove(filepath)
             return "검색 이미지에서 동물을 찾을 수 없습니다.", 400
 
+        # 품종 필터링 옵션 확인
+        breed_filter = request.form.get('breed_filter') == 'on'
+
         conn = sqlite3.connect('pets.db')
         conn.row_factory = sqlite3.Row  # Row 팩토리 사용
         c = conn.cursor()
 
-        # 같은 동물 종류만 필터링하여 가져오기
-        c.execute('SELECT id, image_path, embedding, animal_type, location, sighted_at FROM pets WHERE animal_type = ?',
-                  (query_animal_type,))
+        # 같은 동물 종류만 필터링하여 가져오기 (+ 품종 필터 옵션 적용)
+        if breed_filter:
+            # 같은 품종만 검색
+            c.execute('SELECT id, image_path, embedding, animal_type, breed, location, sighted_at FROM pets WHERE animal_type = ? AND breed = ?',
+                      (query_animal_type, query_breed))
+        else:
+            # 같은 동물 종류만 검색 (모든 품종)
+            c.execute('SELECT id, image_path, embedding, animal_type, breed, location, sighted_at FROM pets WHERE animal_type = ?',
+                      (query_animal_type,))
+
         all_pets = c.fetchall()
         conn.close()
 
         if not all_pets:
             animal_name = "강아지" if query_animal_type == "dog" else "고양이"
-            return render_template('results.html', query_image=filepath, results=[], total_count=0,
-                                 message=f"DB에 등록된 {animal_name} 목격 정보가 없습니다.")
+            if breed_filter:
+                return render_template('results.html', query_image=filepath, results=[], total_count=0,
+                                     message=f"DB에 등록된 '{query_breed}' 품종의 {animal_name} 목격 정보가 없습니다.")
+            else:
+                return render_template('results.html', query_image=filepath, results=[], total_count=0,
+                                     message=f"DB에 등록된 {animal_name} 목격 정보가 없습니다.")
 
         results = []
         for pet in all_pets:
@@ -182,6 +205,7 @@ def search_pet():
                 'id': pet['id'],
                 'image_path': pet['image_path'],
                 'animal_type': pet['animal_type'],
+                'breed': pet['breed'] if pet['breed'] else '품종 미상',
                 'location': pet['location'] if pet['location'] else '장소 정보 없음',
                 'sighted_at': pet['sighted_at'] if pet['sighted_at'] else '시간 정보 없음',
                 'similarity': float(similarity),
@@ -190,9 +214,11 @@ def search_pet():
 
         results.sort(key=lambda x: x['similarity'], reverse=True)
         animal_name = "강아지" if query_animal_type == "dog" else "고양이"
-        print(f"[Search] 검색 완료 - 종류: {animal_name}, 결과: {len(results)}개")
+        filter_msg = f", 품종: {query_breed}" if breed_filter else ""
+        print(f"[Search] 검색 완료 - 종류: {animal_name}{filter_msg}, 결과: {len(results)}개")
 
-        return render_template('results.html', query_image=filepath, results=results, total_count=len(results))
+        return render_template('results.html', query_image=filepath, results=results, total_count=len(results),
+                             query_breed=query_breed, breed_filter=breed_filter)
 
     except Exception as e:
         print(f"[Search ERROR] {str(e)}")

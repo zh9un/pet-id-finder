@@ -54,6 +54,9 @@ class ImageAnalyzer:
         else:
             raise ValueError(f"지원하지 않는 모델: {model_type}. 'dino' 또는 'clip'을 사용하세요.")
 
+        # 품종 분류는 CLIP의 Zero-shot Classification 사용 (별도 모델 불필요)
+        self._init_breed_labels()
+
         print("[ImageAnalyzer] 초기화 완료\n")
 
     def _load_dino(self):
@@ -108,6 +111,25 @@ class ImageAnalyzer:
         self.transform = None
         print("   CLIP 로딩 완료")
 
+    def _init_breed_labels(self):
+        """품종 분류를 위한 레이블 초기화 (CLIP Zero-shot 사용)"""
+        # 주요 개 품종 목록
+        self.dog_breeds = [
+            "Poodle", "Golden Retriever", "Labrador Retriever", "Bulldog", "German Shepherd",
+            "Beagle", "Rottweiler", "Yorkshire Terrier", "Dachshund", "Boxer",
+            "Shih Tzu", "Chihuahua", "Pomeranian", "Husky", "Corgi",
+            "Maltese", "Cocker Spaniel", "Border Collie", "Samoyed", "Jindo"
+        ]
+
+        # 주요 고양이 품종 목록
+        self.cat_breeds = [
+            "Persian", "Maine Coon", "Siamese", "Ragdoll", "British Shorthair",
+            "Bengal", "Abyssinian", "Birman", "Sphynx", "Russian Blue",
+            "Scottish Fold", "American Shorthair", "Norwegian Forest Cat", "Korat", "Turkish Angora"
+        ]
+
+        print("   품종 분류 레이블 초기화 완료 (CLIP Zero-shot)")
+
     def process_and_extract_features(self, image_path):
         """
         이미지 처리 및 특징 추출 (전체 파이프라인)
@@ -116,9 +138,10 @@ class ImageAnalyzer:
             image_path (str): 이미지 파일 경로
 
         Returns:
-            tuple: (특징 벡터, 동물 종류) 또는 (None, None) (동물 미탐지)
+            tuple: (특징 벡터, 동물 종류, 품종) 또는 (None, None, None) (동물 미탐지)
                 - features (numpy.ndarray): 특징 벡터 (shape: (1, dim))
                 - animal_type (str): 'dog' 또는 'cat'
+                - breed (str): 품종 이름 (예: "Poodle", "Persian")
         """
         try:
             # Step 1: 이미지 로드
@@ -159,7 +182,7 @@ class ImageAnalyzer:
 
             # 동물 미탐지
             if not animal_detected or cropped_img is None:
-                return None, None
+                return None, None, None
 
             # Step 4: 특징 벡터 추출
             if self.model_type == 'dino':
@@ -167,11 +190,14 @@ class ImageAnalyzer:
             else:
                 features = self._extract_clip_features(cropped_img)
 
-            return features, animal_type
+            # Step 5: 품종 분류
+            breed = self.classify_breed(cropped_img, animal_type)
+
+            return features, animal_type, breed
 
         except Exception as e:
             print(f"[ERROR] 이미지 처리 실패: {str(e)}")
-            return None, None
+            return None, None, None
 
     def _extract_dino_features(self, img):
         """DINO 특징 추출"""
@@ -190,6 +216,59 @@ class ImageAnalyzer:
             features = self.feature_model.get_image_features(**inputs)
 
         return features.cpu().numpy()
+
+    def classify_breed(self, img, animal_type):
+        """
+        품종 분류 (CLIP Zero-shot Classification 사용)
+
+        Args:
+            img (PIL.Image): 동물 이미지 (크롭된 이미지)
+            animal_type (str): 'dog' 또는 'cat'
+
+        Returns:
+            str: 품종 이름 (예: "Poodle", "Persian")
+        """
+        try:
+            # CLIP 모델을 사용하지 않는 경우 (DINO)
+            if self.model_type != 'clip':
+                return "Unknown (CLIP required)"
+
+            # 품종 목록 선택
+            if animal_type == 'dog':
+                breeds = self.dog_breeds
+            elif animal_type == 'cat':
+                breeds = self.cat_breeds
+            else:
+                return "Unknown"
+
+            # CLIP Zero-shot Classification
+            # 텍스트 프롬프트 생성
+            text_inputs = [f"a photo of a {breed}" for breed in breeds]
+
+            # 이미지와 텍스트 임베딩 계산
+            inputs = self.feature_processor(
+                text=text_inputs,
+                images=img,
+                return_tensors="pt",
+                padding=True
+            )
+
+            with torch.no_grad():
+                outputs = self.feature_model(**inputs)
+                logits_per_image = outputs.logits_per_image  # 이미지-텍스트 유사도
+                probs = logits_per_image.softmax(dim=1)  # 확률로 변환
+
+            # 가장 높은 확률의 품종 선택
+            max_prob_idx = probs.argmax().item()
+            breed = breeds[max_prob_idx]
+            confidence = probs[0, max_prob_idx].item()
+
+            print(f"   품종 분류: {breed} (신뢰도: {confidence:.2f})")
+            return breed
+
+        except Exception as e:
+            print(f"[ERROR] 품종 분류 실패: {str(e)}")
+            return "Unknown"
 
 
 if __name__ == "__main__":
