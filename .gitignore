@@ -53,5 +53,4 @@ models/
 *.log
 
 # Demo images (added)
-demo_images/
-api_images/
+static/
