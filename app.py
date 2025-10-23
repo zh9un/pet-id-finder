@@ -240,6 +240,86 @@ def stats():
     })
 
 
+@app.route('/gradcam/<int:pet_id>')
+def gradcam(pet_id):
+    """Grad-CAM 시각화 생성"""
+    try:
+        import torch
+        from torchvision import models
+        import torch.nn as nn
+        from gradcam import generate_gradcam_for_pet
+
+        # 데이터베이스에서 펫 정보 조회
+        conn = sqlite3.connect('pets.db')
+        c = conn.cursor()
+        c.execute('SELECT image_path, animal_type, breed FROM pets WHERE id = ?', (pet_id,))
+        pet = c.fetchone()
+        conn.close()
+
+        if not pet:
+            return jsonify({'error': f'ID {pet_id}를 찾을 수 없습니다.'}), 404
+
+        image_path, animal_type, breed = pet
+
+        # Fine-tuned 모델 확인
+        model_path = os.path.join('models', 'breed_classifier_best.pth')
+        labels_path = os.path.join('models', 'breed_labels.json')
+
+        if not os.path.exists(model_path) or not os.path.exists(labels_path):
+            return jsonify({'error': 'Fine-tuned 모델이 없습니다. 먼저 train_breed_classifier.py를 실행하세요.'}), 404
+
+        # 레이블 로드
+        with open(labels_path, 'r', encoding='utf-8') as f:
+            breed_to_idx = json.load(f)
+
+        # 모델 로드
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        num_classes = len(breed_to_idx)
+
+        model = models.resnet18(pretrained=False)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        model = model.to(device)
+        model.eval()
+
+        # 품종 예측
+        from PIL import Image
+        from torchvision import transforms
+
+        img = Image.open(image_path).convert('RGB')
+        transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        input_tensor = transform(img).unsqueeze(0).to(device)
+
+        with torch.no_grad():
+            output = model(input_tensor)
+            predicted_class = output.argmax(dim=1).item()
+
+        # Grad-CAM 생성
+        gradcam_image = generate_gradcam_for_pet(model, image_path, predicted_class, device=str(device))
+
+        # 결과 저장
+        output_filename = f"gradcam_{pet_id}.jpg"
+        output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        gradcam_image.save(output_path)
+
+        print(f"[Grad-CAM] 생성 완료 - Pet ID: {pet_id}, 저장: {output_path}")
+
+        # 이미지 URL 반환
+        from flask import send_file
+        return send_file(output_path, mimetype='image/jpeg')
+
+    except Exception as e:
+        print(f"[Grad-CAM ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Grad-CAM 생성 중 오류 발생: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     init_db()

@@ -52,5 +52,6 @@ models/
 # Logs
 *.log
 
-# Demo images (added)
+# Demo images 
 static/
+datasets/

@@ -165,6 +165,69 @@
             font-size: 1.5em;
             margin-bottom: 10px;
         }
+
+        .gradcam-button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        .gradcam-button:hover {
+            background: #059669;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 700px;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .gradcam-image {
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -209,6 +272,7 @@
                             <p><strong>유사도:</strong> {{ result.similarity_percent }}</p>
                             <p><strong>목격 장소:</strong> {{ result.location }}</p>
                             <p><strong>목격 시간:</strong> {{ result.sighted_at }}</p>
+                            <button class="gradcam-button" onclick="showGradCAM({{ result.id }})">AI 분석 근거 보기</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -225,5 +289,55 @@
             <a href="/" class="back-button">새로운 검색</a>
         </div>
     </div>
+
+    <!-- Grad-CAM Modal -->
+    <div id="gradcamModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeGradCAM()">&times;</span>
+            <h2 style="color: #667eea; margin-bottom: 10px;">AI 품종 분석 근거 (Grad-CAM)</h2>
+            <p style="color: #666; margin-bottom: 20px;">빨간색 영역이 AI가 품종을 판단할 때 중요하게 본 부분입니다.</p>
+            <div id="gradcamContent">
+                <div class="loading">로딩 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showGradCAM(petId) {
+            const modal = document.getElementById('gradcamModal');
+            const content = document.getElementById('gradcamContent');
+
+            // 모달 표시
+            modal.style.display = 'block';
+
+            // 로딩 표시
+            content.innerHTML = '<div class="loading">Grad-CAM 생성 중... (약 5-10초 소요)</div>';
+
+            // Grad-CAM 이미지 로드
+            const img = new Image();
+            img.className = 'gradcam-image';
+            img.onload = function() {
+                content.innerHTML = '';
+                content.appendChild(img);
+            };
+            img.onerror = function() {
+                content.innerHTML = '<div class="loading" style="color: #ef4444;">Grad-CAM 생성 실패. Fine-tuned 모델이 필요합니다.</div>';
+            };
+            img.src = '/gradcam/' + petId + '?' + new Date().getTime(); // 캐시 방지
+        }
+
+        function closeGradCAM() {
+            const modal = document.getElementById('gradcamModal');
+            modal.style.display = 'none';
+        }
+
+        // 모달 외부 클릭 시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('gradcamModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>

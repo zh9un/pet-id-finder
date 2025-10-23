@@ -23,10 +23,11 @@ class ImageAnalyzer:
     Step 2: DINO/CLIP으로 특징 추출
     """
 
-    def __init__(self, model_type='clip'):
+    def __init__(self, model_type='clip', use_finetuned_breed=True):
         """
         Args:
             model_type (str): 'dino' 또는 'clip'
+            use_finetuned_breed (bool): Fine-tuned ResNet18 품종 분류 사용 여부
         """
         print(f"[ImageAnalyzer] 초기화 시작 (모델: {model_type.upper()})")
 
@@ -54,8 +55,8 @@ class ImageAnalyzer:
         else:
             raise ValueError(f"지원하지 않는 모델: {model_type}. 'dino' 또는 'clip'을 사용하세요.")
 
-        # 품종 분류는 CLIP의 Zero-shot Classification 사용 (별도 모델 불필요)
-        self._init_breed_labels()
+        # 품종 분류 모델 초기화
+        self._init_breed_classifier(use_finetuned_breed)
 
         print("[ImageAnalyzer] 초기화 완료\n")
 
@@ -111,24 +112,70 @@ class ImageAnalyzer:
         self.transform = None
         print("   CLIP 로딩 완료")
 
-    def _init_breed_labels(self):
-        """품종 분류를 위한 레이블 초기화 (CLIP Zero-shot 사용)"""
-        # 주요 개 품종 목록
-        self.dog_breeds = [
-            "Poodle", "Golden Retriever", "Labrador Retriever", "Bulldog", "German Shepherd",
-            "Beagle", "Rottweiler", "Yorkshire Terrier", "Dachshund", "Boxer",
-            "Shih Tzu", "Chihuahua", "Pomeranian", "Husky", "Corgi",
-            "Maltese", "Cocker Spaniel", "Border Collie", "Samoyed", "Jindo"
-        ]
+    def _init_breed_classifier(self, use_finetuned_breed):
+        """품종 분류 모델 초기화"""
+        import json
+        from torchvision import models
+        import torch.nn as nn
 
-        # 주요 고양이 품종 목록
-        self.cat_breeds = [
-            "Persian", "Maine Coon", "Siamese", "Ragdoll", "British Shorthair",
-            "Bengal", "Abyssinian", "Birman", "Sphynx", "Russian Blue",
-            "Scottish Fold", "American Shorthair", "Norwegian Forest Cat", "Korat", "Turkish Angora"
-        ]
+        self.use_finetuned_breed = use_finetuned_breed
+        self.breed_classifier = None
+        self.breed_labels = None
+        self.breed_transform = None
 
-        print("   품종 분류 레이블 초기화 완료 (CLIP Zero-shot)")
+        # Fine-tuned 모델 사용 시도
+        if use_finetuned_breed:
+            model_path = os.path.join(self.models_dir, 'breed_classifier_best.pth')
+            labels_path = os.path.join(self.models_dir, 'breed_labels.json')
+
+            if os.path.exists(model_path) and os.path.exists(labels_path):
+                print("   Fine-tuned ResNet18 품종 분류 모델 로딩...")
+
+                # 레이블 로드
+                with open(labels_path, 'r', encoding='utf-8') as f:
+                    breed_to_idx = json.load(f)
+
+                self.breed_labels = {v: k for k, v in breed_to_idx.items()}
+                num_classes = len(breed_to_idx)
+
+                # 모델 로드
+                self.breed_classifier = models.resnet18(pretrained=False)
+                self.breed_classifier.fc = nn.Linear(self.breed_classifier.fc.in_features, num_classes)
+                self.breed_classifier.load_state_dict(torch.load(model_path, map_location=self.device))
+                self.breed_classifier = self.breed_classifier.to(self.device)
+                self.breed_classifier.eval()
+
+                # 전처리 변환
+                self.breed_transform = transforms.Compose([
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                ])
+
+                print(f"   Fine-tuned 모델 로드 완료 ({num_classes}개 클래스)")
+            else:
+                print(f"   Fine-tuned 모델 없음 - CLIP Zero-shot으로 대체")
+                self.use_finetuned_breed = False
+
+        # CLIP Zero-shot 사용 (fallback)
+        if not self.use_finetuned_breed:
+            # 주요 개 품종 목록
+            self.dog_breeds = [
+                "Poodle", "Golden Retriever", "Labrador Retriever", "Bulldog", "German Shepherd",
+                "Beagle", "Rottweiler", "Yorkshire Terrier", "Dachshund", "Boxer",
+                "Shih Tzu", "Chihuahua", "Pomeranian", "Husky", "Corgi",
+                "Maltese", "Cocker Spaniel", "Border Collie", "Samoyed", "Jindo"
+            ]
+
+            # 주요 고양이 품종 목록
+            self.cat_breeds = [
+                "Persian", "Maine Coon", "Siamese", "Ragdoll", "British Shorthair",
+                "Bengal", "Abyssinian", "Birman", "Sphynx", "Russian Blue",
+                "Scottish Fold", "American Shorthair", "Norwegian Forest Cat", "Korat", "Turkish Angora"
+            ]
+
+            print("   품종 분류: CLIP Zero-shot")
 
     def process_and_extract_features(self, image_path):
         """
@@ -219,7 +266,7 @@ class ImageAnalyzer:
 
     def classify_breed(self, img, animal_type):
         """
-        품종 분류 (CLIP Zero-shot Classification 사용)
+        품종 분류 (Fine-tuned ResNet18 또는 CLIP Zero-shot)
 
         Args:
             img (PIL.Image): 동물 이미지 (크롭된 이미지)
@@ -229,42 +276,63 @@ class ImageAnalyzer:
             str: 품종 이름 (예: "Poodle", "Persian")
         """
         try:
-            # CLIP 모델을 사용하지 않는 경우 (DINO)
-            if self.model_type != 'clip':
-                return "Unknown (CLIP required)"
+            # Fine-tuned 모델 사용
+            if self.use_finetuned_breed and self.breed_classifier is not None:
+                # 이미지 전처리
+                input_tensor = self.breed_transform(img).unsqueeze(0).to(self.device)
 
-            # 품종 목록 선택
-            if animal_type == 'dog':
-                breeds = self.dog_breeds
-            elif animal_type == 'cat':
-                breeds = self.cat_breeds
+                # 품종 예측
+                with torch.no_grad():
+                    output = self.breed_classifier(input_tensor)
+                    probs = torch.nn.functional.softmax(output, dim=1)
+                    predicted_idx = output.argmax(dim=1).item()
+                    confidence = probs[0, predicted_idx].item()
+
+                # 품종 이름 조회
+                breed_folder = self.breed_labels[predicted_idx]
+
+                # 품종 이름 정리 (n02113624-toy_poodle -> Toy Poodle)
+                breed_name = breed_folder.split('-', 1)[1].replace('_', ' ').title()
+
+                print(f"   품종 분류 (Fine-tuned): {breed_name} (신뢰도: {confidence:.2f})")
+                return breed_name
+
+            # CLIP Zero-shot Classification (fallback)
+            elif self.model_type == 'clip':
+                # 품종 목록 선택
+                if animal_type == 'dog':
+                    breeds = self.dog_breeds
+                elif animal_type == 'cat':
+                    breeds = self.cat_breeds
+                else:
+                    return "Unknown"
+
+                # 텍스트 프롬프트 생성
+                text_inputs = [f"a photo of a {breed}" for breed in breeds]
+
+                # 이미지와 텍스트 임베딩 계산
+                inputs = self.feature_processor(
+                    text=text_inputs,
+                    images=img,
+                    return_tensors="pt",
+                    padding=True
+                )
+
+                with torch.no_grad():
+                    outputs = self.feature_model(**inputs)
+                    logits_per_image = outputs.logits_per_image
+                    probs = logits_per_image.softmax(dim=1)
+
+                # 가장 높은 확률의 품종 선택
+                max_prob_idx = probs.argmax().item()
+                breed = breeds[max_prob_idx]
+                confidence = probs[0, max_prob_idx].item()
+
+                print(f"   품종 분류 (CLIP Zero-shot): {breed} (신뢰도: {confidence:.2f})")
+                return breed
+
             else:
-                return "Unknown"
-
-            # CLIP Zero-shot Classification
-            # 텍스트 프롬프트 생성
-            text_inputs = [f"a photo of a {breed}" for breed in breeds]
-
-            # 이미지와 텍스트 임베딩 계산
-            inputs = self.feature_processor(
-                text=text_inputs,
-                images=img,
-                return_tensors="pt",
-                padding=True
-            )
-
-            with torch.no_grad():
-                outputs = self.feature_model(**inputs)
-                logits_per_image = outputs.logits_per_image  # 이미지-텍스트 유사도
-                probs = logits_per_image.softmax(dim=1)  # 확률로 변환
-
-            # 가장 높은 확률의 품종 선택
-            max_prob_idx = probs.argmax().item()
-            breed = breeds[max_prob_idx]
-            confidence = probs[0, max_prob_idx].item()
-
-            print(f"   품종 분류: {breed} (신뢰도: {confidence:.2f})")
-            return breed
+                return "Unknown (Model not available)"
 
         except Exception as e:
             print(f"[ERROR] 품종 분류 실패: {str(e)}")
